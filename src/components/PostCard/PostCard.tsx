@@ -42,7 +42,6 @@ const PostCard = ({
 
   const isLiked = !!likesStorage[currentUsername]?.[post.id];
 
-  // Conta real total de likes por todos os usuários
   const allLikesCount = Object.values(likesStorage).reduce(
     (count: number, user: any) => (user[post.id] ? count + 1 : count),
     0
@@ -164,7 +163,7 @@ const PostCard = ({
               fontSize: isLiked ? "24px" : "20px",
               transition: "0.2s",
               color: isLiked ? "red" : "#888",
-              transform: isLiked ? "scale(1.3)" : "scale(1)",
+              transform: isLiked ? "scale(1)" : "scale(1)",
             }}
           >
             ❤️

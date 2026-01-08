@@ -23,13 +23,15 @@ const DeleteModal = ({ open, onClose, onConfirm }: DeleteModalProps) => {
     <Dialog
       open={open}
       onClose={onClose}
-      PaperProps={{
-        sx: {
-          borderRadius: "16px",
-          padding: "24px",
-          width: isMobile ? "90vw" : "660px",
-          maxWidth: "95vw",
-          border: "1px solid #999999",
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: "16px",
+            padding: "24px",
+            width: isMobile ? "90vw" : "660px",
+            maxWidth: "95vw",
+            border: "1px solid #999999",
+          },
         },
       }}
     >

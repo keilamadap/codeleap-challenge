@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Box, Container, Typography } from "@mui/material";
+import {
+  Box,
+  Container,
+  Typography,
+  CircularProgress,
+  TextField,
+} from "@mui/material";
 import type { Post } from "../../types/Post";
 import CreatePostCard from "../../components/CreatePostCard/CreatePostCard";
 import PostCard from "../../components/PostCard/PostCard";
@@ -8,17 +14,27 @@ import EditModal from "../../components/EditModal/EditModal";
 import DeleteModal from "../../components/DeleteModal/DeleteModal";
 import { useDeletePost } from "../../services/useDeletePost";
 import { useNavigate } from "react-router-dom";
-import { useInfinitePosts } from "../../services/useInfinityPosts";
-import { CircularProgress } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import InputAdornment from "@mui/material/InputAdornment";
 
+import { useInfinitePosts } from "../../services/useInfinityPosts";
 import { useQueryClient } from "@tanstack/react-query";
+
+type Filters = {
+  text: string;
+  author: string;
+  onlyMine: boolean;
+  onlyLiked: boolean;
+  orderBy: "newest" | "oldest";
+};
 
 const Home = () => {
   const navigate = useNavigate();
   const CURRENT_USERNAME = localStorage.getItem("username");
+  const loaderRef = useRef<HTMLDivElement | null>(null);
+  const queryClient = useQueryClient();
 
   const { mutate: deletePost } = useDeletePost();
-
   const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useInfinitePosts();
 
@@ -29,7 +45,15 @@ const Home = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletePostId, setDeletePostId] = useState<number | null>(null);
 
-  const handleEditClick = (post: Post) => {
+  const [filters, setFilters] = useState<Filters>({
+    text: "",
+    author: "",
+    onlyMine: false,
+    onlyLiked: false,
+    orderBy: "newest",
+  });
+
+  const handleEdit = (post: Post) => {
     setEditingPost(post);
     setEditModalOpen(true);
   };
@@ -39,7 +63,7 @@ const Home = () => {
     setDeleteModalOpen(true);
   };
 
-  const confirmDelete = () => {
+  const handleDelete = () => {
     if (!deletePostId) return;
 
     deletePost(deletePostId, {
@@ -49,8 +73,6 @@ const Home = () => {
       },
     });
   };
-
-  const queryClient = useQueryClient();
 
   const handleLike = (id: number) => {
     const username = CURRENT_USERNAME!;
@@ -63,22 +85,17 @@ const Home = () => {
     }
 
     const alreadyLiked = likesStorage[username][id];
-
     likesStorage[username][id] = !alreadyLiked;
-
     localStorage.setItem("likes", JSON.stringify(likesStorage));
 
-    queryClient.setQueryData<{
-      pages: { results: Post[] }[];
-      pageParams: unknown[];
-    }>(["posts"], (oldData) => {
+    queryClient.setQueryData<any>(["posts"], (oldData) => {
       if (!oldData) return oldData;
 
       return {
         ...oldData,
-        pages: oldData.pages.map((page) => ({
+        pages: oldData.pages.map((page: any) => ({
           ...page,
-          results: page.results.map((post) =>
+          results: page.results.map((post: Post) =>
             post.id === id
               ? {
                   ...post,
@@ -92,13 +109,29 @@ const Home = () => {
     });
   };
 
+  const filteredPosts = posts.filter((post) => {
+    if (
+      filters.text &&
+      !post.content.toLowerCase().includes(filters.text.toLowerCase())
+    )
+      return false;
+
+    if (
+      filters.author &&
+      !post.username.toLowerCase().includes(filters.author.toLowerCase())
+    )
+      return false;
+
+    if (filters.onlyMine && post.username !== CURRENT_USERNAME) return false;
+
+    return true;
+  });
+
   useEffect(() => {
     if (!CURRENT_USERNAME) {
       navigate("/");
     }
   }, [navigate, CURRENT_USERNAME]);
-
-  const loaderRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!loaderRef.current || !hasNextPage) return;
@@ -111,14 +144,13 @@ const Home = () => {
     return () => observer.disconnect();
   }, [loaderRef, hasNextPage, fetchNextPage]);
 
-  if (isLoading)
+  if (isLoading) {
     return (
-      <Box
-        sx={{ display: "flex", justifyContent: "center", marginTop: "40px" }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "center", mt: "40px" }}>
         <CircularProgress />
       </Box>
     );
+  }
 
   return (
     <Box sx={{ minHeight: "100vh", backgroundColor: "#DDDDDD" }}>
@@ -128,7 +160,6 @@ const Home = () => {
           padding: 0,
           backgroundColor: "#FFFFFF",
           minHeight: "100vh",
-          width: "100%",
           maxWidth: "800px",
           margin: "0 auto",
         }}
@@ -137,22 +168,81 @@ const Home = () => {
 
         <Box sx={{ padding: "24px" }}>
           <CreatePostCard currentUsername={CURRENT_USERNAME!} />
-
-          {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              onLike={handleLike}
-              post={post}
-              currentUsername={CURRENT_USERNAME!}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteClick}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 3 }}>
+            <TextField
+              placeholder="Search for blog content"
+              sx={{
+                "& .MuiInputBase-root": {
+                  height: "32px",
+                  borderRadius: "8px",
+                },
+              }}
+              value={filters.text}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <SearchIcon sx={{ color: "#999" }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, text: e.target.value }))
+              }
             />
-          ))}
+
+            <TextField
+              placeholder="Search for post author"
+              sx={{
+                "& .MuiInputBase-root": {
+                  height: "32px",
+                  borderRadius: "8px",
+                },
+              }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <SearchIcon sx={{ color: "#999" }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              value={filters.author}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, author: e.target.value }))
+              }
+            />
+          </Box>
+
+          {filteredPosts.length === 0 ? (
+            <Typography
+              sx={{
+                textAlign: "center",
+                color: "#777",
+                marginTop: "32px",
+              }}
+            >
+              No results.
+            </Typography>
+          ) : (
+            filteredPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                onLike={handleLike}
+                post={post}
+                currentUsername={CURRENT_USERNAME!}
+                onEdit={handleEdit}
+                onDelete={handleDeleteClick}
+              />
+            ))
+          )}
 
           <div ref={loaderRef} style={{ height: 1 }} />
 
           {isFetchingNextPage && (
-            <Typography sx={{ textAlign: "center", padding: "16px" }}>
+            <Typography sx={{ textAlign: "center", py: 2 }}>
               <CircularProgress size={28} />
             </Typography>
           )}
@@ -171,7 +261,7 @@ const Home = () => {
       <DeleteModal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        onConfirm={confirmDelete}
+        onConfirm={handleDelete}
       />
     </Box>
   );
