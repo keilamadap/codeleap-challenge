@@ -28,6 +28,13 @@ type Filters = {
   orderBy: "newest" | "oldest";
 };
 
+type InfinitePostsData = {
+  pages: {
+    results: Post[];
+  }[];
+  pageParams: unknown[];
+};
+
 const Home = () => {
   const navigate = useNavigate();
   const CURRENT_USERNAME = localStorage.getItem("username");
@@ -88,14 +95,14 @@ const Home = () => {
     likesStorage[username][id] = !alreadyLiked;
     localStorage.setItem("likes", JSON.stringify(likesStorage));
 
-    queryClient.setQueryData<any>(["posts"], (oldData) => {
+    queryClient.setQueryData<InfinitePostsData>(["posts"], (oldData) => {
       if (!oldData) return oldData;
 
       return {
         ...oldData,
-        pages: oldData.pages.map((page: any) => ({
+        pages: oldData.pages.map((page) => ({
           ...page,
-          results: page.results.map((post: Post) =>
+          results: page.results.map((post) =>
             post.id === id
               ? {
                   ...post,
